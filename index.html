@@ -1,1 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Idea Vault</title>
+    <style>
+        :root {
+            --primary-color: #6200ee;
+            --background-color: #f5f5f5;
+            --surface-color: #ffffff;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --delete-color: #ff3b30;
+            --font-family: 'Arial', sans-serif;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--background-color);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 300;
+        }
+
+        .intro {
+            background-color: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+        }
+
+        .intro p {
+            margin-bottom: 10px;
+        }
+
+        .intro .tagline {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .intro .pro-tip {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+
+        #ideaForm {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+
+        #ideaList {
+            list-style-type: none;
+        }
+
+        .idea-item {
+            background-color: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: var(--box-shadow);
+            cursor: pointer;
+        }
+
+        .idea-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .idea-title {
+            font-weight: 500;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .idea-date {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .idea-notes {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .delete-btn {
+            background-color: var(--delete-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: var(--surface-color);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: var(--border-radius);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .modal-actions button {
+            margin-left: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Business Idea Vault</h1>
+        <div class="intro">
+            <p class="tagline">Simply the fastest way to capture and store business ideas!</p>
+            <p>After saving an idea, you can add more details by tapping on it.</p>
+            
+            <div class="pro-tip">
+                <p><strong>Pro Tip:</strong> Save this page to your home screen for instant access!</p>
+                <p>On iPhone: Use Safari, tap the share button, then "Add to Home Screen".</p>
+                <p>On Android: Use Chrome, tap the menu, then "Add to Home screen".</p>
+            </div>
+        </div>
+        <form id="ideaForm">
+            <input type="text" id="ideaInput" placeholder="Enter your business idea" aria-label="Enter your business idea" required>
+            <button type="submit">Add</button>
+        </form>
+        <ul id="ideaList"></ul>
+    </div>
+
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <p>Are you sure you want to delete this idea?</p>
+            <div class="modal-actions">
+                <button id="cancelDelete">Cancel</button>
+                <button id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Version 1.5 - Fast Business Idea Vault with Improved UX
+        
+        let ideas = JSON.parse(localStorage.getItem('ideas')) || [];
+        let currentDeleteIndex = -1;
+
+        const ideaForm = document.getElementById('ideaForm');
+        const ideaInput = document.getElementById('ideaInput');
+        const ideaList = document.getElementById('ideaList');
+        const deleteModal = document.getElementById('deleteModal');
+        const cancelDelete = document.getElementById('cancelDelete');
+        const confirmDelete = document.getElementById('confirmDelete');
+
+        function saveIdeas() {
+            localStorage.setItem('ideas', JSON.stringify(ideas));
+        }
+
+        function renderIdeas() {
+            ideaList.innerHTML = '';
+            ideas.forEach((idea, index) => {
+                const li = document.createElement('li');
+                li.className = 'idea-item';
+                li.innerHTML = `
+                    <div class="idea-header">
+                        <div class="idea-title">${idea.title}</div>
+                    </div>
+                    <div class="idea-date">${new Date(idea.date).toLocaleString()}</div>
+                    <div class="idea-notes" style="display: none;">
+                        <textarea placeholder="Add more details here">${idea.notes || ''}</textarea>
+                        <button class="delete-btn" data-index="${index}">Delete</button>
+                    </div>
+                `;
+                
+                li.addEventListener('click', (e) => {
+                    const notesDiv = li.querySelector('.idea-notes');
+                    const deleteBtn = li.querySelector('.delete-btn');
+                    if (notesDiv.style.display === 'none') {
+                        notesDiv.style.display = 'block';
+                        deleteBtn.style.display = 'block';
+                    } else {
+                        notesDiv.style.display = 'none';
+                        deleteBtn.style.display = 'none';
+                    }
+                });
+
+                li.querySelector('textarea').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+
+                li.querySelector('textarea').addEventListener('input', (e) => {
+                    ideas[index].notes = e.target.value;
+                    saveIdeas();
+                });
+
+                li.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    currentDeleteIndex = parseInt(e.target.getAttribute('data-index'));
+                    deleteModal.style.display = 'block';
+                });
+
+                ideaList.appendChild(li);
+            });
+        }
+
+        ideaForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newIdea = {
+                title: ideaInput.value.trim(),
+                date: new Date().toISOString(),
+                notes: ''
+            };
+            if (newIdea.title) {
+                ideas.unshift(newIdea);
+                saveIdeas();
+                renderIdeas();
+                ideaForm.reset();
+            }
+        });
+
+        cancelDelete.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            currentDeleteIndex = -1;
+        });
+
+        confirmDelete.addEventListener('click', () => {
+            if (currentDeleteIndex !== -1) {
+                ideas.splice(currentDeleteIndex, 1);
+                saveIdeas();
+                renderIdeas();
+                deleteModal.style.display = 'none';
+                currentDeleteIndex = -1;
+            }
+        });
+
+        // Close the modal if clicked outside of it
+        window.addEventListener('click', (e) => {
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+                currentDeleteIndex = -1;
+            }
+        });
+
+        renderIdeas();
+    </script>
+</body>
+</html>
