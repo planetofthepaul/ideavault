@@ -171,6 +171,20 @@
             margin-left: 10px;
         }
 
+        #authStatus {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        #signInButton, #signOutButton {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 10px;
@@ -180,6 +194,7 @@
 </head>
 <body>
     <div class="container">
+        <div id="authStatus"></div>
         <h1>Business Idea Vault</h1>
         <div class="intro">
             <p class="tagline">Simply the fastest way to capture and store business ideas!</p>
@@ -208,11 +223,45 @@
         </div>
     </div>
 
-    <script>
-        // Version 1.5 - Fast Business Idea Vault with Improved UX
-        
-        let ideas = JSON.parse(localStorage.getItem('ideas')) || [];
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <h2>Sign In / Sign Up</h2>
+            <button id="googleSignIn">Sign in with Google</button>
+            <input type="email" id="emailInput" placeholder="Email">
+            <input type="password" id="passwordInput" placeholder="Password">
+            <button id="emailSignIn">Sign In</button>
+            <button id="emailSignUp">Sign Up</button>
+            <button id="forgotPassword">Forgot Password</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaMXOSRs6g1ZWDnLLY7agvbmsutbtFk0E",
+            authDomain: "businessideavault.firebaseapp.com",
+            projectId: "businessideavault",
+            storageBucket: "businessideavault.appspot.com",
+            messagingSenderId: "1039135392068",
+            appId: "1:1039135392068:web:338ead1faa68df31241711",
+            measurementId: "G-0P4P4085MX"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        let ideas = [];
         let currentDeleteIndex = -1;
+        let currentUser = null;
 
         const ideaForm = document.getElementById('ideaForm');
         const ideaInput = document.getElementById('ideaInput');
@@ -220,9 +269,100 @@
         const deleteModal = document.getElementById('deleteModal');
         const cancelDelete = document.getElementById('cancelDelete');
         const confirmDelete = document.getElementById('confirmDelete');
+        const authStatus = document.getElementById('authStatus');
+        const authModal = document.getElementById('authModal');
+        const googleSignIn = document.getElementById('googleSignIn');
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const emailSignIn = document.getElementById('emailSignIn');
+        const emailSignUp = document.getElementById('emailSignUp');
+        const forgotPassword = document.getElementById('forgotPassword');
+
+        // Authentication state observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authStatus.innerHTML = `Signed in as ${user.email} <button id="signOutButton">Sign Out</button>`;
+                document.getElementById('signOutButton').addEventListener('click', () => {
+                    signOut(auth);
+                });
+                loadIdeas();
+            } else {
+                currentUser = null;
+                authStatus.innerHTML = '<button id="signInButton">Sign In</button>';
+                document.getElementById('signInButton').addEventListener('click', () => {
+                    authModal.style.display = 'block';
+                });
+                ideas = JSON.parse(localStorage.getItem('ideas')) || [];
+                renderIdeas();
+            }
+        });
+
+        // Google Sign In
+        googleSignIn.addEventListener('click', () => {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider)
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error("Error during Google sign in:", error);
+                });
+        });
+
+        // Email/Password Sign In
+        emailSignIn.addEventListener('click', () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            signInWithEmailAndPassword(auth, email, password)
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error("Error during email/password sign in:", error);
+                });
+        });
+
+        // Email/Password Sign Up
+        emailSignUp.addEventListener('click', () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            createUserWithEmailAndPassword(auth, email, password)
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error("Error during email/password sign up:", error);
+                });
+        });
+
+        // Forgot Password
+        forgotPassword.addEventListener('click', () => {
+            const email = emailInput.value;
+            sendPasswordResetEmail(auth, email)
+                .then(() => {
+                    alert("Password reset email sent. Check your inbox.");
+                })
+                .catch((error) => {
+                    console.error("Error sending password reset email:", error);
+                });
+        });
+
+        function loadIdeas() {
+            const ideasRef = ref(database, 'users/' + currentUser.uid + '/ideas');
+            onValue(ideasRef, (snapshot) => {
+                ideas = snapshot.val() || [];
+                renderIdeas();
+            });
+        }
 
         function saveIdeas() {
-            localStorage.setItem('ideas', JSON.stringify(ideas));
+            if (currentUser) {
+                const ideasRef = ref(database, 'users/' + currentUser.uid + '/ideas');
+                set(ideasRef, ideas);
+            } else {
+                localStorage.setItem('ideas', JSON.stringify(ideas));
+            }
         }
 
         function renderIdeas() {
@@ -308,9 +448,4 @@
                 deleteModal.style.display = 'none';
                 currentDeleteIndex = -1;
             }
-        });
-
-        renderIdeas();
-    </script>
-</body>
-</html>
+            if
